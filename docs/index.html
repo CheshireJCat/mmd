@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>three.js webgl - loaders - MMD loader</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <style>
+      body {
+        color: #444;
+        padding: 0;
+        margin: 0;
+      }
+      a {
+        color: #08f;
+      }
+      #status {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        font-size: 20px;
+        color: #999;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container"></div>
+    <div id="status">点击开始</div>
+    <script src="ammo.wasm.js"></script>
+
+    <script type="module">
+      import * as THREE from "./_snowpack/pkg/three.js";
+
+      import { OutlineEffect } from "./_snowpack/pkg/three/examples/jsm/effects/OutlineEffect.js";
+      import { MMDLoader } from "./_snowpack/pkg/three/examples/jsm/loaders/MMDLoader.js";
+      import { MMDAnimationHelper } from "./_snowpack/pkg/three/examples/jsm/animation/MMDAnimationHelper.js";
+
+      console.log(THREE);
+
+      let mesh, camera, scene, renderer, effect;
+      let helper;
+
+      let ready = false;
+
+      let clicked = false;
+
+      const clock = new THREE.Clock();
+
+      let status = document.getElementById("status");
+
+      function changeStatus(text) {
+        status.innerText = text || "";
+      }
+
+      status.addEventListener("click", function () {
+        if (!ready && !clicked) {
+          clicked = true;
+          changeStatus("资源加载中...");
+          Ammo().then(function () {
+            init(() => {
+              ready = true;
+              changeStatus("即将开始...");
+              animate();
+              changeStatus();
+            });
+          });
+        }
+      });
+
+      function init(callback) {
+        const container = document.getElementById("container");
+
+        camera = new THREE.PerspectiveCamera(
+          45,
+          window.innerWidth / window.innerHeight,
+          1,
+          2000
+        );
+
+        // scene
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        scene.add(new THREE.PolarGridHelper(30, 10));
+
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+        scene.add(camera);
+
+        const ambient = new THREE.AmbientLight(0x666666);
+        scene.add(ambient);
+
+        const directionalLight = new THREE.DirectionalLight(0x887766);
+        directionalLight.position.set(-1, 1, 1).normalize();
+        scene.add(directionalLight);
+
+        //
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        effect = new OutlineEffect(renderer);
+        // model
+
+        function onProgress(xhr) {
+          if (xhr.lengthComputable) {
+            const percentComplete = (xhr.loaded / xhr.total) * 100;
+            changeStatus(Math.round(percentComplete, 2) + "% downloaded");
+            console.log(Math.round(percentComplete, 2) + "% downloaded");
+          }
+        }
+
+        const vmdFiles = ["models/models/vmd/snow.vmd"];
+        const audioFile = "models/models/audio/snow.mp3";
+        const cameraFiles = ["models/models/vmd/camera.vmd"];
+
+        // const vmdFiles = ["models/models/vmd/elysion1.vmd"];
+        // const audioFile = "models/models/audio/elysion.mp3";
+        // const cameraFiles = ["models/models/vmd/camera1.vmd"];
+
+        const modelFile = "models/models/role/miku/1.pmd";
+        const audioParams = { delayTime: 0 };
+
+        helper = new MMDAnimationHelper();
+
+        const loader = new MMDLoader();
+
+        loader.loadWithAnimation(
+          modelFile,
+          vmdFiles,
+          function (mmd) {
+            mesh = mmd.mesh;
+
+            helper.add(mesh, {
+              animation: mmd.animation,
+              physics: true,
+            });
+
+            loader.loadAnimation(
+              cameraFiles,
+              camera,
+              function (cameraAnimation) {
+                helper.add(camera, {
+                  animation: cameraAnimation,
+                });
+
+                new THREE.AudioLoader().load(
+                  audioFile,
+                  function (buffer) {
+                    const audio = new THREE.Audio(listener).setBuffer(buffer);
+
+                    helper.add(audio, audioParams);
+                    scene.add(mesh);
+                    callback();
+                  },
+                  onProgress,
+                  null
+                );
+              },
+              onProgress,
+              null
+            );
+          },
+          onProgress,
+          null
+        );
+
+        //
+
+        window.addEventListener("resize", onWindowResize);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        effect.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      //
+
+      function animate() {
+        requestAnimationFrame(animate);
+        render();
+      }
+
+      function render() {
+        if (ready) {
+          helper.update(clock.getDelta());
+        }
+        effect.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>

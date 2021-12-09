@@ -7,6 +7,7 @@
     "build": "snowpack build"
   },
   "dependencies": {
+    "@snowpack/plugin-webpack": "^3.0.0",
     "ammo.js": "^0.0.10",
     "three": "^0.135.0",
     "three.js": "^0.77.1"
