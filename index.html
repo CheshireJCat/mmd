@@ -44,8 +44,6 @@
       import { MMDLoader } from "three/examples/jsm/loaders/MMDLoader.js";
       import { MMDAnimationHelper } from "three/examples/jsm/animation/MMDAnimationHelper.js";
 
-      console.log(THREE);
-
       let mesh, camera, scene, renderer, effect;
       let helper;
 
@@ -114,12 +112,15 @@
         effect = new OutlineEffect(renderer);
         // model
 
-        function onProgress(xhr) {
-          if (xhr.lengthComputable) {
-            const percentComplete = (xhr.loaded / xhr.total) * 100;
-            changeStatus(Math.round(percentComplete, 2) + "% downloaded");
-            console.log(Math.round(percentComplete, 2) + "% downloaded");
-          }
+        function _onProgress(name) {
+          return function onProgress(xhr) {
+            if (xhr.lengthComputable) {
+              const percentComplete = (xhr.loaded / xhr.total) * 100;
+              changeStatus(
+                `${name}:${Math.round(percentComplete, 2)}% downloaded`
+              );
+            }
+          };
         }
 
         const vmdFiles = ["models/models/vmd/snow.vmd"];
@@ -165,15 +166,15 @@
                     scene.add(mesh);
                     callback();
                   },
-                  onProgress,
+                  _onProgress("audio"),
                   null
                 );
               },
-              onProgress,
+              _onProgress("camera"),
               null
             );
           },
-          onProgress,
+          _onProgress("model"),
           null
         );
 
