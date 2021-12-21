@@ -109,10 +109,10 @@ function init(callback) {
 
     // model
 
-    const vmdFiles = ["/models/vmd/snow.vmd"];
-    const audioFile = "/models/audio/snow.mp3";
-    const cameraFiles = ["/models/vmd/camera.vmd"];
-    const modelFile = "/models/role/miku/1.pmd";
+    const vmdFiles = ["./models/vmd/snow.vmd"];
+    const audioFile = "./models/audio/snow.mp3";
+    const cameraFiles = ["./models/vmd/camera.vmd"];
+    const modelFile = "./models/role/miku/1.pmd";
 
     // const vmdFiles = ["models/vmd/elysion1.vmd"];
     // const audioFile = "models/audio/elysion.mp3";
