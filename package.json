@@ -4,7 +4,8 @@
   },
   "scripts": {
     "start": "snowpack dev",
-    "build": "snowpack build"
+    "build": "snowpack build & yarn clean",
+    "clean": "rm -rf docs/.git docs/node_modules docs/package.json docs/snowpack.config.js docs/yarn.lock"
   },
   "dependencies": {
     "@snowpack/plugin-webpack": "^3.0.0",

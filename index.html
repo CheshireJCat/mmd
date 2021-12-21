@@ -40,6 +40,8 @@
         visibility: hidden;
       }
     </style>
+    <link rel="preload" href="models/models/role/miku/1.pmd" as="fetch" />
+    <link rel="preload" href="models/models/audio/snow.mp3" as="fetch" />
   </head>
 
   <body>
@@ -92,8 +94,8 @@
       function _onProgress(name) {
         return function onProgress(xhr) {
           if (xhr.lengthComputable) {
-            const percentComplete = (xhr.loaded / xhr.total) * 100;
-            progressControl.changeProgress(name, percentComplete);
+            const percentComplete = Math.floor((xhr.loaded / xhr.total) * 100);
+            progressControl.changeProgress(name, percentComplete.toFixed);
           }
         };
       }
