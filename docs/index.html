@@ -12,9 +12,7 @@
         color: #444;
         padding: 0;
         margin: 0;
-      }
-      a {
-        color: #08f;
+        background-color: #b7fde3;
       }
       #status {
         width: 100%;
@@ -29,22 +27,39 @@
         font-size: 20px;
         color: #999;
       }
+      #progress {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+      }
+      #progress.hide {
+        visibility: hidden;
+      }
     </style>
   </head>
 
   <body>
     <div id="container"></div>
     <div id="status">点击开始</div>
+    <ul id="progress">
+      <li>Model:<span id="progress_model">0</span>%</li>
+      <li>Animation:<span id="progress_animation">0</span>%</li>
+      <li>Camera:<span id="progress_camera">0</span>%</li>
+      <li>Music:<span id="progress_music">0</span>%</li>
+    </ul>
     <script src="ammo.wasm.js"></script>
 
     <script type="module">
       import * as THREE from "./dist/pkg/three.js";
 
-      import { OutlineEffect } from "./dist/pkg/three/examples/jsm/effects/OutlineEffect.js";
       import { MMDLoader } from "./dist/pkg/three/examples/jsm/loaders/MMDLoader.js";
       import { MMDAnimationHelper } from "./dist/pkg/three/examples/jsm/animation/MMDAnimationHelper.js";
 
-      let mesh, camera, scene, renderer, effect;
+      let mesh, camera, scene, renderer;
       let helper;
 
       let ready = false;
@@ -54,23 +69,56 @@
       const clock = new THREE.Clock();
 
       let status = document.getElementById("status");
+      let progressControl = {
+        self: document.getElementById("progress"),
+        progress_model: document.getElementById("progress_model"),
+        progress_animation: document.getElementById("progress_animation"),
+        progress_camera: document.getElementById("progress_camera"),
+        progress_music: document.getElementById("progress_music"),
+        changeProgress(name, p) {
+          this.show();
+          this[`progress_${name}`].innerText = p;
+        },
+        hide() {
+          this.self.classList.add("hide");
+        },
+        show() {
+          if (this.self.classList.contains("hide")) {
+            this.self.classList.remove("hide");
+          }
+        },
+      };
+
+      function _onProgress(name) {
+        return function onProgress(xhr) {
+          if (xhr.lengthComputable) {
+            const percentComplete = (xhr.loaded / xhr.total) * 100;
+            progressControl.changeProgress(name, percentComplete);
+          }
+        };
+      }
 
       function changeStatus(text) {
         status.innerText = text || "";
+      }
+
+      let debug = false;
+
+      function start() {
+        init(() => {
+          changeStatus("即将开始...");
+          ready = true;
+          animate();
+          changeStatus();
+          progressControl.hide();
+        });
       }
 
       status.addEventListener("click", function () {
         if (!ready && !clicked) {
           clicked = true;
           changeStatus("资源加载中...");
-          Ammo().then(function () {
-            init(() => {
-              ready = true;
-              changeStatus("即将开始...");
-              animate();
-              changeStatus();
-            });
-          });
+          Ammo().then(start);
         }
       });
 
@@ -78,50 +126,45 @@
         const container = document.getElementById("container");
 
         camera = new THREE.PerspectiveCamera(
-          45,
+          30,
           window.innerWidth / window.innerHeight,
           1,
-          2000
+          1500
         );
 
         // scene
 
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
+        scene.background = new THREE.Color(0xb7fde3);
 
-        scene.add(new THREE.PolarGridHelper(30, 10));
+        // scene.add(new THREE.PolarGridHelper(30, 0));
+        const geometry = new THREE.CylinderGeometry(40, 42, 1, 30, 30);
+        const material = new THREE.MeshMatcapMaterial({ color: 0xf1c4e3 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.translateY(-1);
+        scene.add(mesh);
 
         const listener = new THREE.AudioListener();
         camera.add(listener);
         scene.add(camera);
 
-        const ambient = new THREE.AmbientLight(0x666666);
+        // light
+
+        const ambient = new THREE.AmbientLight(0x777777);
         scene.add(ambient);
 
         const directionalLight = new THREE.DirectionalLight(0x887766);
-        directionalLight.position.set(-1, 1, 1).normalize();
+        directionalLight.position.set(0, 0, 10).normalize();
         scene.add(directionalLight);
-
-        //
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
-        effect = new OutlineEffect(renderer);
         // model
-
-        function _onProgress(name) {
-          return function onProgress(xhr) {
-            if (xhr.lengthComputable) {
-              const percentComplete = (xhr.loaded / xhr.total) * 100;
-              changeStatus(
-                `${name}:${Math.round(percentComplete, 2)}% downloaded`
-              );
-            }
-          };
-        }
 
         const vmdFiles = ["models/models/vmd/snow.vmd"];
         const audioFile = "models/models/audio/snow.mp3";
@@ -137,47 +180,84 @@
         helper = new MMDAnimationHelper();
 
         const loader = new MMDLoader();
+        const animationBuilder = loader.animationBuilder;
 
-        loader.loadWithAnimation(
-          modelFile,
-          vmdFiles,
-          function (mmd) {
-            mesh = mmd.mesh;
-
+        if (!debug) {
+          Promise.all([
+            loadModel(modelFile),
+            loadAnimation(vmdFiles),
+            loadCamera(cameraFiles),
+            loadMusic(audioFile),
+          ]).then(([mesh, vmd, cameraAnimation, music]) => {
+            let animation = animationBuilder.build(vmd, mesh);
             helper.add(mesh, {
-              animation: mmd.animation,
+              animation: animation,
               physics: true,
             });
+            helper.add(camera, {
+              animation: cameraAnimation,
+            });
+            helper.add(music, audioParams);
+            scene.add(mesh);
+            callback();
+          });
+        } else {
+          callback();
+        }
 
+        function loadModel(url) {
+          return new Promise((resolve) => {
+            loader.load(
+              url,
+              function (model) {
+                resolve(model);
+              },
+              _onProgress("model"),
+              null
+            );
+          });
+        }
+
+        function loadAnimation(url) {
+          return new Promise((resolve) => {
+            loader.loadVMD(
+              url,
+              function (animation) {
+                resolve(animation);
+              },
+              _onProgress("animation"),
+              null
+            );
+          });
+        }
+
+        function loadCamera(url) {
+          return new Promise((resolve) => {
             loader.loadAnimation(
-              cameraFiles,
+              url,
               camera,
               function (cameraAnimation) {
-                helper.add(camera, {
-                  animation: cameraAnimation,
-                });
-
-                new THREE.AudioLoader().load(
-                  audioFile,
-                  function (buffer) {
-                    const audio = new THREE.Audio(listener).setBuffer(buffer);
-
-                    helper.add(audio, audioParams);
-                    scene.add(mesh);
-                    callback();
-                  },
-                  _onProgress("audio"),
-                  null
-                );
+                resolve(cameraAnimation);
               },
               _onProgress("camera"),
               null
             );
-          },
-          _onProgress("model"),
-          null
-        );
+          });
+        }
 
+        function loadMusic(url) {
+          return new Promise((resolve) => {
+            new THREE.AudioLoader().load(
+              url,
+              function (buffer) {
+                const audio = new THREE.Audio(listener).setBuffer(buffer);
+                resolve(audio);
+              },
+              _onProgress("music"),
+              null
+            );
+          });
+        }
         //
 
         window.addEventListener("resize", onWindowResize);
@@ -187,7 +267,7 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
 
-        effect.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(window.innerWidth, window.innerHeight);
       }
 
       //
@@ -201,7 +281,7 @@
         if (ready) {
           helper.update(clock.getDelta());
         }
-        effect.render(scene, camera);
+        renderer.render(scene, camera);
       }
     </script>
   </body>

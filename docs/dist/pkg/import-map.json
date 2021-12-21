@@ -2,7 +2,6 @@
   "imports": {
     "three": "./three.js",
     "three/examples/jsm/animation/MMDAnimationHelper.js": "./three/examples/jsm/animation/MMDAnimationHelper.js",
-    "three/examples/jsm/effects/OutlineEffect.js": "./three/examples/jsm/effects/OutlineEffect.js",
     "three/examples/jsm/loaders/MMDLoader.js": "./three/examples/jsm/loaders/MMDLoader.js"
   }
 }
